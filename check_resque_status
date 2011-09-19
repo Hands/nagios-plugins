@@ -1,0 +1,80 @@
+#!/usr/bin/env ruby
+
+require "rubygems"
+require "resque"
+require "resque/status"
+require "optparse"
+
+options  = {}
+required = [:name]
+
+parser   = OptionParser.new do |opts|
+  opts.banner = "Usage: check_resque_status [options]"
+  options[:host] = 'localhost'
+  opts.on("-r", "--redis redishost", "The hostname of the redis server") do |h|
+    options[:host] = h
+  end
+  opts.on("-n", "--name job_name", "The name of the job to check") do |n|
+    options[:name] = n
+  end
+  options[:num_last_status] = 10
+  opts.on("-l", "--num-last-status num", "Number of last statuses from a job to check ") do |ls|
+    options[:num_last_status] = ls.to_i
+  end
+  options[:last_statuses_with_error] = 3
+  opts.on("-e", "--last-status-with-error num", "Number of failed from last statuses") do |lse|
+    options[:last_statuses_with_error] = lse.to_i
+  end
+  opts.on( '-h', '--help', 'Display this screen' ) do
+       puts opts
+       exit
+  end
+end
+parser.parse!
+
+if !required.all? { |k| options.has_key?(k) }
+  abort parser.to_s
+else
+  redis = Redis.new(:host => options[:host])
+  Resque.redis = redis
+
+  name = options[:name]
+  
+  array_status = Resque::Status.statuses.inject([]) do |result, e| 
+    if e.name == name
+      if result.count < options[:num_last_status]
+        result << e
+      end
+    end
+    result
+  end
+  
+  if array_status.count > options[:last_statuses_with_error]
+  
+    last_error = array_status[0].status
+    last_error_message = array_status[0].message
+    errors_in_last_n_status = array_status.inject(0){ |sum,e| e.status == 'failed' ? sum+=1 : sum}
+
+    status = :ok
+
+    if last_error == 'failed' or errors_in_last_n_status == options[:num_last_status]
+      status = :critical
+    elsif errors_in_last_n_status >= options[:last_statuses_with_error]
+      status = :warning
+    end
+
+    print status.to_s.upcase
+    print " - "
+    puts "#{last_error_message} | '#{name}'=#{errors_in_last_n_status};#{options[:last_statuses_with_error]};#{options[:num_last_status]};;"
+
+    if (status == :critical)
+      exit(2)
+    elsif status == :warning
+      exit(1)
+    end
+  else
+    status = :unknown
+    puts "#{status.to_s.upcase} - #{name} - No data available"
+    exit(3)
+  end
+end
