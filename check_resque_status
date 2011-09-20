@@ -57,11 +57,27 @@ else
   
     last_error = array_status[0].status
     last_error_message = array_status[0].message
-    errors_in_last_n_status = array_status.inject(0){ |sum,e| e.status == 'failed' ? sum+=1 : sum}
+    errors_in_last_n_status = array_status.inject(0){ |sum,e| 
+      if options[:verbose]
+        puts "#{e.status} - #{e.time} - #{e.message}"
+      end
+      e.status == 'failed' ? sum+=1 : sum
+    }
 
     status = :ok
+    
+    last_three_status = array_status[0,3]
+    if options[:verbose]
+      puts "Last three-ish status"
+    end
+    errors_in_last_three_status = last_three_status.inject(0){ |sum,e| 
+      if options[:verbose]
+        puts "#{e.status}"
+      end
+      e.status == 'failed' ? sum+=1 : sum
+    }
 
-    if last_error == 'failed' or errors_in_last_n_status == options[:num_last_status]
+    if errors_in_last_three_status == array_status.count or errors_in_last_n_status == options[:num_last_status]
       status = :critical
     elsif errors_in_last_n_status >= options[:last_statuses_with_error]
       status = :warning
@@ -69,7 +85,7 @@ else
 
     print status.to_s.upcase
     print " - "
-    puts "#{last_error_message} | '#{name}'=#{errors_in_last_n_status};#{options[:last_statuses_with_error]};#{options[:num_last_status]};;"
+    puts "#{errors_in_last_n_status}/#{array_status.count} - #{last_error_message} | '#{name}'=#{errors_in_last_n_status};#{options[:last_statuses_with_error]};#{options[:num_last_status]};;"
 
     if (status == :critical)
       exit(2)
