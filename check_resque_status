@@ -25,6 +25,10 @@ parser   = OptionParser.new do |opts|
   opts.on("-e", "--last-status-with-error num", "Number of failed from last statuses") do |lse|
     options[:last_statuses_with_error] = lse.to_i
   end
+  options[:verbose] = false
+  opts.on("-v", "--verbose true", "Verbose output") do |v|
+    options[:verbose] = true
+  end
   opts.on( '-h', '--help', 'Display this screen' ) do
        puts opts
        exit
