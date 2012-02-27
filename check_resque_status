@@ -43,8 +43,8 @@ else
   Resque.redis = redis
 
   name = options[:name]
-  
-  array_status = Resque::Status.statuses.inject([]) do |result, e| 
+
+  array_status = Resque::Plugins::Status::Hash.statuses.inject([]) do |result, e|
     if e.name == name
       if result.count < options[:num_last_status]
         result << e
@@ -52,12 +52,12 @@ else
     end
     result
   end
-  
+
   if array_status.count > 0
-  
+
     last_error = array_status[0].status
     last_error_message = array_status[0].message
-    errors_in_last_n_status = array_status.inject(0){ |sum,e| 
+    errors_in_last_n_status = array_status.inject(0){ |sum,e|
       if options[:verbose]
         puts "#{e.status} - #{e.time} - #{e.message}"
       end
@@ -65,12 +65,12 @@ else
     }
 
     status = :ok
-    
+
     last_three_status = array_status[0,3]
     if options[:verbose]
       puts "Last three-ish status"
     end
-    errors_in_last_three_status = last_three_status.inject(0){ |sum,e| 
+    errors_in_last_three_status = last_three_status.inject(0){ |sum,e|
       if options[:verbose]
         puts "#{e.status}"
       end
